@@ -12,12 +12,18 @@ use Filament\Tables\Filters\BaseFilter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
+use App\Console\Commands\MakeModularFilamentResource;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+         // Register custom commands
+         if ($this->app->runningInConsole()) {
+            $this->commands([
+                MakeModularFilamentResource::class,
+            ]);
+        }
     }
 
     protected function translatableComponents(): void
