@@ -25,7 +25,7 @@ class MakeModularFilamentResource extends Command
         public function handle()
     {
         $name = $this->argument('name');
-        $fields = $this->option('fields') ?? 'PersonalFields,SalaryFields,LeaveFields';
+        $fields = $this->option('fields') ?? 'DefaultFields';
 
         $resourceName = Str::studly($name) . 'Resource';
         $fieldClasses = collect(explode(',', $fields))->map(fn($field) => Str::studly(trim($field)))->toArray();
@@ -276,7 +276,6 @@ PHP;
 
 namespace App\Filament\Resources\{{ResourceName}}\Fields;
 
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Section;
 
 class {{FieldClass}}
@@ -286,11 +285,7 @@ class {{FieldClass}}
         return [
             Section::make('{{FieldClass}}')
                 ->schema([
-                    TextInput::make('example_field')
-                        ->label('Example Field')
-                        ->required(),
-
-                    // Add more fields here as needed
+                    // Add your form components here
                 ])
                 ->columns(2),
         ];
