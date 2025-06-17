@@ -171,9 +171,31 @@ class MakeModularFilamentResource extends Command
 
         $tableContent = $matches[1] ?? "\n        return \$table\n            ->columns([\n                //\n            ])\n            ->filters([\n                //\n            ])\n            ->actions(Actions::getActions())\n            ->bulkActions(Actions::getBulkActions());";
 
+        // Replace inline actions with Actions class calls
+        $tableContent = $this->replaceInlineActionsWithActionsCalls($tableContent);
+
         // Create TableSchema.php
         $tableSchemaContent = $this->getTableSchemaStub($resourceName, $tableContent);
         $this->files->put(app_path("Filament/Resources/{$resourceName}/TableSchema.php"), $tableSchemaContent);
+    }
+
+    protected function replaceInlineActionsWithActionsCalls($tableContent)
+    {
+        // Replace ->actions([...]) with ->actions(Actions::getActions())
+        $tableContent = preg_replace(
+            '/->actions\(\[\s*(?:[^[\]]*(?:\[[^\]]*\])*[^[\]]*)*\s*\]\)/s',
+            '->actions(Actions::getActions())',
+            $tableContent
+        );
+
+        // Replace ->bulkActions([...]) with ->bulkActions(Actions::getBulkActions())
+        $tableContent = preg_replace(
+            '/->bulkActions\(\[\s*(?:[^[\]]*(?:\[[^\]]*\])*[^[\]]*)*\s*\]\)/s',
+            '->bulkActions(Actions::getBulkActions())',
+            $tableContent
+        );
+
+        return $tableContent;
     }
 
     protected function updateMainResource($resourceName)
@@ -257,6 +279,10 @@ PHP;
 
     protected function getTableSchemaStub($resourceName, $originalTableContent)
     {
+        // Check if Actions class is referenced in the table content
+        $hasActionsReference = strpos($originalTableContent, 'Actions::') !== false;
+        $actionsImport = $hasActionsReference ? "use App\\Filament\\Resources\\{$resourceName}\\Actions;\n" : '';
+
         return <<<PHP
 <?php
 
@@ -264,7 +290,7 @@ namespace App\Filament\Resources\\{$resourceName};
 
 use Filament\Tables\Table;
 use Filament\Tables;
-
+{$actionsImport}
 class TableSchema
 {
     public static function make(Table \$table): Table
