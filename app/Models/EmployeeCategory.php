@@ -17,4 +17,12 @@ class EmployeeCategory extends Model
     protected $guarded = ['id'];
     // add hidden
     protected $hidden = ['created_at', 'updated_at'];
+
+    /**
+     * Get the employees for the employee category.
+     */
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
 }
