@@ -20,7 +20,8 @@ class WorkShiftResource extends Resource
 {
     protected static ?string $model = WorkShift::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-clock';
+    protected static ?string $navigationGroup = 'System Configuration';
 
     public static function form(Form $form): Form
     {
