@@ -47,6 +47,7 @@ class MakeModularFilamentResource extends Command
         $this->line("- app/Filament/Resources/{$resourceName}.php (modified)");
         $this->line("- app/Filament/Resources/{$resourceName}/FormSchema.php");
         $this->line("- app/Filament/Resources/{$resourceName}/TableSchema.php");
+        $this->line("- app/Filament/Resources/{$resourceName}/Actions.php");
 
         foreach ($fieldClasses as $fieldClass) {
             $this->line("- app/Filament/Resources/{$resourceName}/Fields/{$fieldClass}.php");
@@ -56,7 +57,8 @@ class MakeModularFilamentResource extends Command
         $this->info("📝 Next steps:");
         $this->line("1. Update your field classes in app/Filament/Resources/{$resourceName}/Fields/");
         $this->line("2. Customize the table columns in app/Filament/Resources/{$resourceName}/TableSchema.php");
-        $this->line("3. Add any additional logic to the main resource file");
+        $this->line("3. Customize actions in app/Filament/Resources/{$resourceName}/Actions.php");
+        $this->line("4. Add any additional logic to the main resource file");
     }
 
                     protected function createStandardResource($name)
@@ -130,6 +132,9 @@ class MakeModularFilamentResource extends Command
         $this->extractFormLogic($resourceName, $fieldClasses);
         $this->extractTableLogic($resourceName);
 
+        // Create Actions.php
+        $this->createActionsFile($resourceName);
+
         // Create field classes
         foreach ($fieldClasses as $fieldClass) {
             $this->createFieldFile($resourceName, $fieldClass);
@@ -164,7 +169,7 @@ class MakeModularFilamentResource extends Command
         $pattern = '/public static function table\(Table \$table\): Table\s*\{(.*?)\n    \}/s';
         preg_match($pattern, $content, $matches);
 
-        $tableContent = $matches[1] ?? "\n        return \$table\n            ->columns([\n                //\n            ])\n            ->filters([\n                //\n            ])\n            ->actions([\n                Tables\\Actions\\EditAction::make(),\n                Tables\\Actions\\DeleteAction::make(),\n            ])\n            ->bulkActions([\n                Tables\\Actions\\BulkActionGroup::make([\n                    Tables\\Actions\\DeleteBulkAction::make(),\n                ]),\n            ]);";
+        $tableContent = $matches[1] ?? "\n        return \$table\n            ->columns([\n                //\n            ])\n            ->filters([\n                //\n            ])\n            ->actions(Actions::getActions())\n            ->bulkActions(Actions::getBulkActions());";
 
         // Create TableSchema.php
         $tableSchemaContent = $this->getTableSchemaStub($resourceName, $tableContent);
@@ -176,8 +181,8 @@ class MakeModularFilamentResource extends Command
         $resourcePath = app_path("Filament/Resources/{$resourceName}.php");
         $content = $this->files->get($resourcePath);
 
-        // Add imports for FormSchema and TableSchema
-        $imports = "use App\Filament\Resources\\{$resourceName}\FormSchema;\nuse App\Filament\Resources\\{$resourceName}\TableSchema;";
+        // Add imports for FormSchema, TableSchema, and Actions
+        $imports = "use App\Filament\Resources\\{$resourceName}\FormSchema;\nuse App\Filament\Resources\\{$resourceName}\TableSchema;\nuse App\Filament\Resources\\{$resourceName}\Actions;";
 
         // Find the last use statement and add our imports after it
         $content = preg_replace('/^(use .+;)$/m', "$1", $content);
@@ -264,6 +269,59 @@ class TableSchema
 {
     public static function make(Table \$table): Table
     {{$originalTableContent}
+    }
+}
+PHP;
+    }
+
+    protected function createActionsFile($resourceName)
+    {
+        $stub = $this->getActionsStub($resourceName);
+        $this->files->put(app_path("Filament/Resources/{$resourceName}/Actions.php"), $stub);
+    }
+
+    protected function getActionsStub($resourceName)
+    {
+        return <<<PHP
+<?php
+
+namespace App\Filament\Resources\\{$resourceName};
+
+use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
+
+class Actions
+{
+    public static function getActions(): array
+    {
+        return [
+            ActionGroup::make([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\ViewAction::make(),
+            ])
+            ->label('Actions')
+            ->icon('heroicon-o-ellipsis-vertical')
+            ->size('sm')
+            ->color('gray')
+            ->button(),
+        ];
+    }
+
+    public static function getBulkActions(): array
+    {
+        return [
+            Tables\Actions\BulkActionGroup::make([
+                Tables\Actions\DeleteBulkAction::make(),
+            ]),
+        ];
+    }
+
+    public static function getHeaderActions(): array
+    {
+        return [
+            Tables\Actions\CreateAction::make(),
+        ];
     }
 }
 PHP;
