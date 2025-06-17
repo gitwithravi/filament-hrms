@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\DepartmentResource\FormSchema;
 use App\Filament\Resources\DepartmentResource\TableSchema;
+use App\Filament\Resources\DepartmentResource\Actions;
 
 class DepartmentResource extends Resource
 {

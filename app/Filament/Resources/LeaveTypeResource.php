@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\LeaveTypeResource\FormSchema;
 use App\Filament\Resources\LeaveTypeResource\TableSchema;
+use App\Filament\Resources\LeaveTypeResource\Actions;
 
 class LeaveTypeResource extends Resource
 {

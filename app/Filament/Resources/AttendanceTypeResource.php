@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\AttendanceTypeResource\FormSchema;
 use App\Filament\Resources\AttendanceTypeResource\TableSchema;
+use App\Filament\Resources\AttendanceTypeResource\Actions;
 
 class AttendanceTypeResource extends Resource
 {
