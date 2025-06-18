@@ -21,7 +21,7 @@ class EmployeeCategoryResource extends Resource
     protected static ?string $model = EmployeeCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationGroup = 'System Configuration';
+    protected static ?string $navigationGroup = 'Employee Management';
 
     public static function form(Form $form): Form
     {
