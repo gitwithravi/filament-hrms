@@ -127,6 +127,14 @@ class Employee extends Model
     }
 
     /**
+     * Get the leave allocations for the employee.
+     */
+    public function leaveAllocations(): HasMany
+    {
+        return $this->hasMany(LeaveAllocation::class);
+    }
+
+    /**
      * Get the employee's full name with salutation.
      */
     public function getFullNameWithSalutationAttribute(): string
