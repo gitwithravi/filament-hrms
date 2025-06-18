@@ -4,18 +4,19 @@ namespace App\Filament\Resources;
 
 use App\Models\User;
 use Filament\Tables;
+use App\Enums\UserType;
 use Filament\Forms\Form;
 use Filament\Tables\Table;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
-use Filament\Tables\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use App\Filament\Exports\UserExporter;
 use App\Filament\Imports\UserImporter;
 use Filament\Forms\Components\Section;
 use Filament\Support\Enums\FontWeight;
 use Filament\Forms\Components\TextInput;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Tables\Actions\ImportAction;
 use Filament\Tables\Filters\SelectFilter;
@@ -30,6 +31,7 @@ class UserResource extends Resource
     protected static ?string $model = User::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
+    protected static ?string $navigationGroup = 'User';
 
     public static function form(Form $form): Form
     {
@@ -43,6 +45,9 @@ class UserResource extends Resource
                             TextInput::make('email')
                                 ->required(),
                             TextInput::make('password')
+                                ->required(),
+                            Select::make('user_type')
+                                ->options(UserType::getOptions())
                                 ->required(),
                         ]),
             ]);
