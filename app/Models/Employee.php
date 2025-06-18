@@ -150,4 +150,12 @@ class Employee extends Model
                     ->withPivot(['start_date', 'end_date'])
                     ->withTimestamps();
     }
+
+    /**
+     * Get the leave requests for the employee.
+     */
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class);
+    }
 }

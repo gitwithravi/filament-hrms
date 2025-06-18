@@ -40,4 +40,12 @@ class LeaveType extends Model
     {
         return $this->hasMany(LeaveAllocationRecord::class);
     }
+
+    /**
+     * Get the leave requests for this leave type.
+     */
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class);
+    }
 }

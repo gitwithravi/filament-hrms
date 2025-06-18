@@ -12,6 +12,7 @@ use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
@@ -82,5 +83,21 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * Get the leave requests where this user is the requester.
+     */
+    public function requestedLeaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class, 'requester_user_id');
+    }
+
+    /**
+     * Get the leave requests where this user is the approver.
+     */
+    public function approvedLeaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class, 'approver_user_id');
     }
 }
