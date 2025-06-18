@@ -132,5 +132,13 @@ class Employee extends Model
         return $query->whereNull('date_of_leaving');
     }
 
+    /**
+     * Get the employee records for the employee.
+     */
+    public function employeeRecords(): HasMany
+    {
+        return $this->hasMany(EmployeeRecord::class);
+    }
+
 
 }
