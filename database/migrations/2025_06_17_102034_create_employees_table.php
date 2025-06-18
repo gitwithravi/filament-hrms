@@ -14,13 +14,13 @@ return new class extends Migration
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->enum('salutation', ['Mr.', 'Mrs.', 'Miss.', 'Dr.']);
+            $table->enum('salutation', ['Mr.', 'Mrs.', 'Miss.', 'Dr.'])->nullable();
             $table->string('full_name');
             $table->string('emp_id')->unique();
             $table->foreignId('department_id')->constrained()->onDelete('cascade');
             $table->foreignId('designation_id')->constrained()->onDelete('cascade');
             $table->foreignId('manager_id')->nullable()->constrained('employees')->onDelete('set null');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
             $table->date('dob')->nullable();
             $table->date('date_of_joining')->nullable();
             $table->date('date_of_leaving')->nullable();

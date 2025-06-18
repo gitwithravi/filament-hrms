@@ -31,6 +31,11 @@ class TableSchema
                     ->boolean()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('remarks')
+                    ->label('Remarks')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -40,6 +45,7 @@ class TableSchema
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('date', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('employee_id')
                     ->relationship('employee', 'full_name')

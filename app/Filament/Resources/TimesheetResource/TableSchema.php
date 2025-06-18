@@ -54,6 +54,7 @@ class TableSchema
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('date', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('employee_id')
                     ->relationship('employee', 'full_name')

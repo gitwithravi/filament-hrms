@@ -23,6 +23,7 @@ class Attendance extends Model
         'attendance_type_id',
         'date',
         'is_generated',
+        'remarks',
     ];
 
     /**
