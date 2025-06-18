@@ -5,7 +5,7 @@ namespace App\Filament\Resources\LeaveAllocationResource\Fields;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Get;
-use App\Filament\Resources\LeaveAllocationResource\Rules;
+use App\Services\LeaveAllocationService;
 
 class Period
 {
@@ -29,7 +29,7 @@ class Period
                                         return;
                                     }
 
-                                    if (Rules::hasOverlappingAllocation($employeeId, $value, $endDate, $record?->id)) {
+                                    if (LeaveAllocationService::hasOverlappingAllocation($employeeId, $value, $endDate, $record?->id)) {
                                         $fail('This employee already has a leave allocation that overlaps with the selected period.');
                                     }
                                 };
@@ -52,7 +52,7 @@ class Period
                                         return;
                                     }
 
-                                    if (Rules::hasOverlappingAllocation($employeeId, $startDate, $value, $record?->id)) {
+                                    if (LeaveAllocationService::hasOverlappingAllocation($employeeId, $startDate, $value, $record?->id)) {
                                         $fail('This employee already has a leave allocation that overlaps with the selected period.');
                                     }
                                 };

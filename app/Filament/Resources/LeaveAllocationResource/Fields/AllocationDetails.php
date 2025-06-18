@@ -6,7 +6,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use App\Models\Employee;
-use App\Filament\Resources\LeaveAllocationResource\Rules;
+use App\Services\LeaveAllocationService;
 
 class AllocationDetails
 {
@@ -23,7 +23,7 @@ class AllocationDetails
                         ->required()
                         ->columnSpanFull()
                         ->live()
-                        ->rules(Rules::getEmployeeValidationRules()['employee_id']),
+                        ->rules(LeaveAllocationService::getEmployeeValidationRules()['employee_id']),
 
                     Textarea::make('description')
                         ->label('Description')

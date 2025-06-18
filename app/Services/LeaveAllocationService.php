@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Filament\Resources\LeaveAllocationResource;
+namespace App\Services;
 
 use App\Models\LeaveAllocation;
 use Illuminate\Validation\Rule;
 use Closure;
 
 /**
- * Custom validation rules for Leave Allocation Resource
+ * Leave Allocation Service
  *
- * This class handles validation to ensure that:
- * 1. No two leave allocations for the same employee overlap in time periods
+ * This service handles business logic for leave allocations including:
+ * 1. Overlap validation to ensure no two leave allocations for the same employee overlap in time periods
  * 2. Proper date range validation (allows past dates)
  * 3. Employee selection validation
  *
@@ -22,7 +22,7 @@ use Closure;
  * - Period A completely contains B
  * - Period B completely contains A
  */
-class Rules
+class LeaveAllocationService
 {
     /**
      * Get validation rules for leave allocation overlap checking
