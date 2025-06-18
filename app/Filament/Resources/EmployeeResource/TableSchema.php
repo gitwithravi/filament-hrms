@@ -24,12 +24,6 @@ class TableSchema
                 Tables\Columns\TextColumn::make('phone')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('department.name')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('designation.name')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('manager.full_name')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),

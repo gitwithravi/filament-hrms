@@ -24,8 +24,6 @@ class Employee extends Model
         'salutation',
         'full_name',
         'emp_id',
-        'department_id',
-        'designation_id',
         'employee_category_id',
         'manager_id',
         'user_id',
@@ -77,22 +75,6 @@ class Employee extends Model
             'date_of_joining' => 'date',
             'date_of_leaving' => 'date',
         ];
-    }
-
-    /**
-     * Get the department that the employee belongs to.
-     */
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    /**
-     * Get the designation that the employee has.
-     */
-    public function designation(): BelongsTo
-    {
-        return $this->belongsTo(Designation::class);
     }
 
     /**
@@ -150,19 +132,5 @@ class Employee extends Model
         return $query->whereNull('date_of_leaving');
     }
 
-    /**
-     * Scope to get employees by department.
-     */
-    public function scopeByDepartment($query, $departmentId)
-    {
-        return $query->where('department_id', $departmentId);
-    }
 
-    /**
-     * Scope to get employees by designation.
-     */
-    public function scopeByDesignation($query, $designationId)
-    {
-        return $query->where('designation_id', $designationId);
-    }
 }
