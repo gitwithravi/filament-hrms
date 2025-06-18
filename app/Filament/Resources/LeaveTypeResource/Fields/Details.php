@@ -15,6 +15,9 @@ class Details
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
+                    TextInput::make('code')
+                        ->required()
+                        ->maxLength(2),
                     TextInput::make('yearly_grant')
                         ->required()
                         ->numeric()

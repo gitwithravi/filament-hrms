@@ -12,7 +12,7 @@ class LeaveType extends Model
     use HasFactory, HasUuid;
 
     // add fillable
-    protected $fillable = ['name', 'yearly_grant'];
+    protected $fillable = ['name', 'code', 'yearly_grant'];
     // add guaded
     protected $guarded = ['id'];
     // add hidden
