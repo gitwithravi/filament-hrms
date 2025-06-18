@@ -21,7 +21,7 @@ class AttendanceTypeResource extends Resource
     protected static ?string $model = AttendanceType::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-table-cells';
-    protected static ?string $navigationGroup = 'System Configuration';
+    protected static ?string $navigationGroup = 'Attendance Management';
 
     public static function form(Form $form): Form
     {
