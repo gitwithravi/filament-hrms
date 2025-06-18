@@ -19,7 +19,8 @@ class TableSchema
                     ->label('Employee')
                     ->searchable()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->description(fn ($record) => 'Total Allocations: ' . $record->employee->leaveAllocations()->count()),
 
                 TextColumn::make('start_date')
                     ->label('Start Date')

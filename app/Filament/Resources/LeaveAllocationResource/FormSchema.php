@@ -10,10 +10,12 @@ class FormSchema
 {
     public static function make(Form $form): Form
     {
+        $record = $form->getRecord();
+
         return $form
             ->schema([
-            ...AllocationDetails::make(),
-            ...Period::make(),
+            ...AllocationDetails::make($record),
+            ...Period::make($record),
             ]);
     }
 

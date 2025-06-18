@@ -6,10 +6,11 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use App\Models\Employee;
+use App\Filament\Resources\LeaveAllocationResource\Rules;
 
 class AllocationDetails
 {
-    public static function make(): array
+    public static function make($record = null): array
     {
         return [
             Section::make('Allocation Details')
@@ -20,12 +21,15 @@ class AllocationDetails
                         ->searchable()
                         ->preload()
                         ->required()
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->live()
+                        ->rules(Rules::getEmployeeValidationRules()['employee_id']),
 
                     Textarea::make('description')
                         ->label('Description')
                         ->rows(3)
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->maxLength(1000),
                 ])
                 ->columns(2),
         ];

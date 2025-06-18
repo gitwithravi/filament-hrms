@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\ValidationException;
 
 class LeaveAllocation extends Model
 {
@@ -69,5 +70,48 @@ class LeaveAllocation extends Model
     public function leaveAllocationRecords(): HasMany
     {
         return $this->hasMany(LeaveAllocationRecord::class);
+    }
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (LeaveAllocation $leaveAllocation) {
+            if ($leaveAllocation->hasOverlappingAllocation()) {
+                throw ValidationException::withMessages([
+                    'start_date' => 'This employee already has a leave allocation that overlaps with the selected period.',
+                ]);
+            }
+        });
+
+        static::updating(function (LeaveAllocation $leaveAllocation) {
+            if ($leaveAllocation->hasOverlappingAllocation()) {
+                throw ValidationException::withMessages([
+                    'start_date' => 'This employee already has a leave allocation that overlaps with the selected period.',
+                ]);
+            }
+        });
+    }
+
+    /**
+     * Check if this allocation has overlapping allocations for the same employee.
+     */
+    public function hasOverlappingAllocation(): bool
+    {
+        $query = static::where('employee_id', $this->employee_id)
+            ->where(function ($query) {
+                $query->where(function ($subQuery) {
+                    $subQuery->where('start_date', '<=', $this->end_date)
+                             ->where('end_date', '>=', $this->start_date);
+                });
+            });
+
+        // Exclude current record when updating
+        if ($this->exists) {
+            $query->where('id', '!=', $this->id);
+        }
+
+        return $query->exists();
     }
 }
