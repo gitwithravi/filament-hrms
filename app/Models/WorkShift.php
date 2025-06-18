@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\WeekDay;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class WorkShift extends Model
 {
@@ -53,5 +55,12 @@ class WorkShift extends Model
         return collect($this->weekoffs)->map(function ($day) {
             return WeekDay::tryFrom($day);
         })->filter()->values();
+    }
+
+    public function employees(): BelongsToMany
+    {
+        return $this->belongsToMany(Employee::class, 'employee_work_shift')
+                    ->withPivot(['start_date', 'end_date'])
+                    ->withTimestamps();
     }
 }

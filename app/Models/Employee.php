@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Employee extends Model
 {
@@ -140,5 +141,13 @@ class Employee extends Model
         return $this->hasMany(EmployeeRecord::class);
     }
 
-
+    /**
+     * Get the work shifts that the employee has.
+     */
+    public function workShifts(): BelongsToMany
+    {
+        return $this->belongsToMany(WorkShift::class, 'employee_work_shift')
+                    ->withPivot(['start_date', 'end_date'])
+                    ->withTimestamps();
+    }
 }

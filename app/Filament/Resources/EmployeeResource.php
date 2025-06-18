@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EmployeeResource\Pages;
 use App\Filament\Resources\EmployeeResource\RelationManagers;
 use App\Filament\Resources\EmployeeResource\RelationManagers\EmployeeRecordsRelationManager;
+use App\Filament\Resources\EmployeeResource\RelationManagers\WorkShiftsRelationManager;
 use App\Models\Employee;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -38,6 +39,7 @@ class EmployeeResource extends Resource
     {
         return [
             EmployeeRecordsRelationManager::class,
+            WorkShiftsRelationManager::class,
         ];
     }
 
