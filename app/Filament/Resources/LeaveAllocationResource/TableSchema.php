@@ -2,12 +2,13 @@
 
 namespace App\Filament\Resources\LeaveAllocationResource;
 
-use Filament\Tables\Table;
 use Filament\Tables;
+use App\Enums\UserType;
+use App\Models\Employee;
+use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use App\Filament\Resources\LeaveAllocationResource\Actions;
-use App\Models\Employee;
 
 class TableSchema
 {
@@ -66,7 +67,8 @@ class TableSchema
                     ->label('Employee')
                     ->options(Employee::pluck('full_name', 'id'))
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->visible(fn (): bool => auth()->user()->user_type != UserType::EMPLOYEE),
             ])
             ->actions(Actions::getActions())
             ->bulkActions(Actions::getBulkActions());

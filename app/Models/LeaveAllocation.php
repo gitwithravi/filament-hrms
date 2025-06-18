@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
+use App\Traits\HasOwnRecord;
 
 class LeaveAllocation extends Model
 {
     /** @use HasFactory<\Database\Factories\LeaveAllocationFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasUuid, HasOwnRecord;
 
     /**
      * The attributes that are mass assignable.
