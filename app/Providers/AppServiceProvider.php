@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Models\LeaveRequest;
+use App\Observers\LeaveRequestObserver;
 use App\Services\CustomLogService;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Support\Facades\Blade;
@@ -10,6 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use App\Console\Commands\MakeModularFilamentResource;
+use App\Console\Commands\RecalculateLeaveCountsCommand;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 MakeModularFilamentResource::class,
+                RecalculateLeaveCountsCommand::class,
             ]);
         }
 
@@ -48,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\LeaveOverlapService::class);
         $this->app->singleton(\App\Services\ConsecutiveLeaveValidationService::class);
         $this->app->singleton(\App\Services\LeaveRequestService::class);
+        $this->app->singleton(\App\Services\LeaveCountUpdateService::class);
     }
 
     /**
@@ -63,5 +68,8 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(function (\SocialiteProviders\Manager\SocialiteWasCalled $event) {
             $event->extendSocialite('discord', \SocialiteProviders\Google\Provider::class);
         });
+
+        // Register model observers
+        LeaveRequest::observe(LeaveRequestObserver::class);
     }
 }
