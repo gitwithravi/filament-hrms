@@ -20,8 +20,9 @@ class LeaveAllocationResource extends Resource
 {
     protected static ?string $model = LeaveAllocation::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
-    protected static ?string $navigationGroup = 'Attendance Management';
+    protected static ?string $navigationIcon = 'heroicon-o-ticket';
+    protected static ?string $navigationLabel = 'Leave Allocations';
+    protected static ?string $navigationGroup = 'Leave Management';
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form

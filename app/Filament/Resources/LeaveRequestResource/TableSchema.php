@@ -4,6 +4,7 @@ namespace App\Filament\Resources\LeaveRequestResource;
 
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Enums\LeaveRequestStatus;
 use Filament\Tables\Columns\TextColumn;
 use App\Filament\Resources\LeaveRequestResource\Actions;
 
@@ -32,6 +33,12 @@ class TableSchema
                 TextColumn::make('status')
                     ->label('Status')
                     ->searchable()
+                    ->badge()
+                    ->color(fn ($state) => match ($state) {
+                        LeaveRequestStatus::REQUESTED => 'warning',
+                        LeaveRequestStatus::APPROVED => 'success',
+                        LeaveRequestStatus::REJECTED => 'danger',
+                    })
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label('Created At')
