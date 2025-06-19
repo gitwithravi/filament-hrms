@@ -30,6 +30,7 @@ class AttendanceResource extends Resource
     {
         return [
             'index' => \App\Filament\Resources\AttendanceResource\Pages\ListAttendances::route('/'),
+            'monthly-view' => \App\Filament\Resources\AttendanceResource\Pages\ViewMonthlyAttendance::route('/monthly-view'),
         ];
     }
 }

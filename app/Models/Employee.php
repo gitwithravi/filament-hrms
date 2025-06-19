@@ -139,4 +139,20 @@ class Employee extends Model
     {
         return $this->hasMany(LeaveRequest::class);
     }
+
+    /**
+     * Get the attendance records for the employee.
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    /**
+     * Get the user associated with the employee.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 }
