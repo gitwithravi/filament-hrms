@@ -3,18 +3,20 @@
 namespace App\Models;
 
 use App\Enums\Gender;
-use App\Enums\Salutation;
 use App\Traits\HasUuid;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Enums\Salutation;
+use App\Traits\HasOwnRecord;
+use App\Traits\HasManager;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Employee extends Model
 {
     /** @use HasFactory<\Database\Factories\EmployeeFactory> */
-    use HasFactory, HasUuid;
+    use HasFactory, HasUuid, HasOwnRecord, HasManager;
 
     /**
      * The attributes that are mass assignable.
@@ -26,7 +28,6 @@ class Employee extends Model
         'full_name',
         'emp_id',
         'employee_category_id',
-        'manager_id',
         'user_id',
         'dob',
         'date_of_joining',
@@ -85,29 +86,9 @@ class Employee extends Model
     {
         return $this->belongsTo(EmployeeCategory::class);
     }
-    /**
-     * Get the manager of the employee.
-     */
-    public function manager(): BelongsTo
-    {
-        return $this->belongsTo(Employee::class, 'manager_id');
-    }
 
-    /**
-     * Get the employees that this employee manages.
-     */
-    public function subordinates(): HasMany
-    {
-        return $this->hasMany(Employee::class, 'manager_id');
-    }
 
-    /**
-     * Get the user account associated with the employee.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
+
 
     /**
      * Get the leave allocations for the employee.

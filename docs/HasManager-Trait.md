@@ -93,6 +93,26 @@ $model = new YourModel();
 $count = $model->getManagedEmployeesCount(); // Returns integer (0 for non-managers)
 ```
 
+#### Get Manager for an Employee
+
+```php
+$model = new YourModel();
+
+// Get manager for the current authenticated user's employee
+$manager = $model->getManager(); // Returns Employee instance or null
+
+// Get manager for a specific employee
+$manager = $model->getManager(123); // Returns Employee instance or null
+
+// Example usage
+if ($manager) {
+    echo "Manager: " . $manager->full_name;
+    echo "Manager Email: " . $manager->email;
+} else {
+    echo "No manager found or this is a top-level employee";
+}
+```
+
 ## How It Works
 
 ### Step-by-Step Process
@@ -119,6 +139,35 @@ CEO (Current User)
 ```
 
 If the current user is CEO, they can manage all employees below them in the hierarchy.
+
+### getManager() Function Process
+
+The `getManager()` function works in reverse to find the manager of an employee:
+
+1. **Get Target Employee**: If no employee ID is provided, uses the current authenticated user's employee
+2. **Find Active Employee Record**: Gets the employee's active employee record (without end_date)
+3. **Extract Current Designation**: Gets the designation from the active employee record
+4. **Find Parent Designation**: Gets the parent designation of the current designation
+5. **Find Manager Employee**: Finds the employee who has the parent designation as their active designation
+6. **Return Manager**: Returns the Employee instance of the manager
+
+#### getManager() Example
+
+```
+CEO
+├── VP Sales (Manager of Sales Manager)
+│   ├── Sales Manager (Current Employee)
+│   └── Account Manager
+└── VP Engineering
+    ├── Engineering Manager
+    └── Senior Developer
+```
+
+If you call `getManager()` for the "Sales Manager" employee, it will:
+1. Find that Sales Manager has the "Sales Manager" designation
+2. Find the parent designation is "VP Sales"
+3. Find the employee who has the "VP Sales" designation
+4. Return that employee as the manager
 
 ## Error Handling
 
@@ -185,6 +234,60 @@ public function todayAttendance()
         ->get();
         
     return response()->json($todayAttendance);
+}
+```
+
+### Finding Employee Manager
+
+```php
+// In Employee model (already has HasManager trait)
+// Usage in controller
+public function getEmployeeDetails($employeeId)
+{
+    $employee = Employee::find($employeeId);
+    
+    if (!$employee) {
+        return response()->json(['error' => 'Employee not found'], 404);
+    }
+    
+    // Get the employee's manager
+    $manager = $employee->getManager();
+    
+    $response = [
+        'employee' => $employee,
+        'manager' => $manager ? [
+            'id' => $manager->id,
+            'full_name' => $manager->full_name,
+            'email' => $manager->email,
+            'emp_id' => $manager->emp_id,
+        ] : null
+    ];
+    
+    return response()->json($response);
+}
+
+// Usage in Blade template
+@if($employee->getManager())
+    <p><strong>Reports to:</strong> {{ $employee->getManager()->full_name }}</p>
+    <p><strong>Manager Email:</strong> {{ $employee->getManager()->email }}</p>
+@else
+    <p><em>This employee has no direct manager (top-level position)</em></p>
+@endif
+
+// Usage in API Resource
+public function toArray($request)
+{
+    return [
+        'id' => $this->id,
+        'full_name' => $this->full_name,
+        'emp_id' => $this->emp_id,
+        'email' => $this->email,
+        'manager' => $this->getManager() ? [
+            'id' => $this->getManager()->id,
+            'full_name' => $this->getManager()->full_name,
+            'emp_id' => $this->getManager()->emp_id,
+        ] : null,
+    ];
 }
 ```
 
@@ -285,6 +388,21 @@ dd($employeeIds);
 // Check if user can manage specific employee
 $canManage = $model->canManageEmployee(123);
 dd($canManage);
+
+// Check employee's manager
+$manager = $employee->getManager();
+dd($manager);
+
+// Debug manager finding process
+$employee = Employee::find(123);
+$activeRecord = $employee->employeeRecords()->active()->with('designation')->first();
+dd([
+    'employee' => $employee,
+    'active_record' => $activeRecord,
+    'current_designation' => $activeRecord?->designation,
+    'parent_designation' => $activeRecord?->designation?->parent,
+    'manager' => $employee->getManager()
+]);
 ```
 
 ## Migration Example
@@ -318,4 +436,4 @@ return new class extends Migration
         });
     }
 };
-``` 
+```

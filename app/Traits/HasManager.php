@@ -226,4 +226,168 @@ trait HasManager
 
         return $this->getCurrentUserManagedEmployeeIds()->count();
     }
+
+    /**
+     * Get the manager (Employee instance) for the given employee.
+     * This method finds the employee who has the parent designation of the current employee's designation.
+     *
+     * @param int|null $employeeId The employee ID to find the manager for. If null, uses the current authenticated user's employee.
+     * @return Employee|null
+     */
+    public function getManager(?int $employeeId = null): ?Employee
+    {
+        try {
+            \Log::info('HasManager::getManager called', [
+                'input_employee_id' => $employeeId,
+                'auth_user_id' => Auth::id(),
+                'auth_user_type' => Auth::check() ? Auth::user()->user_type?->value : null,
+            ]);
+
+            // If no employee ID is provided, try to get the current user's employee
+            if ($employeeId === null) {
+                \Log::debug('HasManager::getManager - No employee ID provided, getting from current user');
+
+                if (!Auth::check()) {
+                    \Log::warning('HasManager::getManager - User not authenticated');
+                    return null;
+                }
+
+                $user = Auth::user();
+                \Log::debug('HasManager::getManager - Got authenticated user', [
+                    'user_id' => $user->id,
+                    'user_type' => $user->user_type?->value,
+                ]);
+
+                $employee = $user->employee;
+
+                if (!$employee) {
+                    \Log::warning('HasManager::getManager - Current user has no associated employee', [
+                        'user_id' => $user->id,
+                    ]);
+                    return null;
+                }
+
+                $employeeId = $employee->id;
+                \Log::debug('HasManager::getManager - Using current user employee ID', [
+                    'employee_id' => $employeeId,
+                ]);
+            }
+
+            \Log::debug('HasManager::getManager - Finding employee', [
+                'employee_id' => $employeeId,
+            ]);
+
+            // Get the employee
+            $employee = Employee::find($employeeId);
+
+            if (!$employee) {
+                \Log::warning('HasManager::getManager - Employee not found', [
+                    'employee_id' => $employeeId,
+                ]);
+                return null;
+            }
+
+            \Log::debug('HasManager::getManager - Found employee', [
+                'employee_id' => $employee->id,
+                'employee_name' => $employee->first_name . ' ' . $employee->last_name,
+                'employee_status' => $employee->status?->value,
+            ]);
+
+            // Get the employee's active employee record
+            $activeEmployeeRecord = $employee->employeeRecords()
+                ->active()
+                ->with('designation')
+                ->first();
+
+            if (!$activeEmployeeRecord) {
+                \Log::warning('HasManager::getManager - No active employee record found', [
+                    'employee_id' => $employee->id,
+                ]);
+                return null;
+            }
+
+            if (!$activeEmployeeRecord->designation) {
+                \Log::warning('HasManager::getManager - Active employee record has no designation', [
+                    'employee_id' => $employee->id,
+                    'employee_record_id' => $activeEmployeeRecord->id,
+                ]);
+                return null;
+            }
+
+            $currentDesignation = $activeEmployeeRecord->designation;
+            \Log::debug('HasManager::getManager - Found employee current designation', [
+                'employee_id' => $employee->id,
+                'designation_id' => $currentDesignation->id,
+                'designation_name' => $currentDesignation->name,
+                'designation_parent_id' => $currentDesignation->parent_id,
+            ]);
+
+            // Get the parent designation
+            $parentDesignation = $currentDesignation->parent;
+
+            if (!$parentDesignation) {
+                \Log::info('HasManager::getManager - No parent designation found (top-level designation)', [
+                    'employee_id' => $employee->id,
+                    'designation_id' => $currentDesignation->id,
+                    'designation_name' => $currentDesignation->name,
+                ]);
+                return null;
+            }
+
+            \Log::debug('HasManager::getManager - Found parent designation', [
+                'employee_id' => $employee->id,
+                'parent_designation_id' => $parentDesignation->id,
+                'parent_designation_name' => $parentDesignation->name,
+            ]);
+
+            // Find the employee who has this parent designation as their active designation
+            $managerEmployeeRecord = EmployeeRecord::active()
+                ->where('designation_id', $parentDesignation->id)
+                ->with(['employee' => function ($query) {
+                    $query->withoutGlobalScope('own_record')->active(); // Only active employees, bypassing own record scope
+                }])
+                ->first();
+
+            if (!$managerEmployeeRecord) {
+                \Log::warning('HasManager::getManager - No active employee record found for parent designation', [
+                    'employee_id' => $employee->id,
+                    'parent_designation_id' => $parentDesignation->id,
+                    'parent_designation_name' => $parentDesignation->name,
+                ]);
+                return null;
+            }
+
+            if (!$managerEmployeeRecord->employee) {
+                \Log::warning('HasManager::getManager - Manager employee record found but employee is inactive or missing', [
+                    'employee_id' => $employee->id,
+                    'manager_employee_record_id' => $managerEmployeeRecord->id,
+                    'parent_designation_id' => $parentDesignation->id,
+                ]);
+                return null;
+            }
+
+            $manager = $managerEmployeeRecord->employee;
+            \Log::info('HasManager::getManager - Successfully found manager', [
+                'employee_id' => $employee->id,
+                'manager_id' => $manager->id,
+                'manager_name' => $manager->first_name . ' ' . $manager->last_name,
+                'manager_designation_id' => $parentDesignation->id,
+                'manager_designation_name' => $parentDesignation->name,
+            ]);
+
+            return $manager;
+
+        } catch (\Exception $e) {
+            \Log::error('HasManager::getManager - Exception occurred', [
+                'input_employee_id' => $employeeId,
+                'auth_user_id' => Auth::id(),
+                'exception_message' => $e->getMessage(),
+                'exception_file' => $e->getFile(),
+                'exception_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString(),
+            ]);
+            return null;
+        }
+    }
+
 }

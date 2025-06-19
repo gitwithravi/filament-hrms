@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\EmployeeResource\Fields;
 
-use App\Enums\Salutation;
 use App\Enums\Gender;
+use App\Enums\Salutation;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
