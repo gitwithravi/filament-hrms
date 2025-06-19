@@ -34,6 +34,20 @@ class AppServiceProvider extends ServiceProvider
             return new CustomLogService;
         });
 
+        // Register refactored leave request services
+        $this->registerLeaveRequestServices();
+    }
+
+    /**
+     * Register leave request related services
+     */
+    private function registerLeaveRequestServices(): void
+    {
+        $this->app->singleton(\App\Services\WorkingDayService::class);
+        $this->app->singleton(\App\Services\LeaveBalanceService::class);
+        $this->app->singleton(\App\Services\LeaveOverlapService::class);
+        $this->app->singleton(\App\Services\ConsecutiveLeaveValidationService::class);
+        $this->app->singleton(\App\Services\LeaveRequestService::class);
     }
 
     /**

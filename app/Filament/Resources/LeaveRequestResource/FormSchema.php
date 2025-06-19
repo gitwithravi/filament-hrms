@@ -10,9 +10,11 @@ class FormSchema
 {
     public static function make(Form $form): Form
     {
+        $record = $form->getRecord();
+
         return $form
             ->schema([
-            ...LeaveDetails::make(),
+            ...LeaveDetails::make($record),
             ...AdditionalDetails::make(),
             ]);
     }

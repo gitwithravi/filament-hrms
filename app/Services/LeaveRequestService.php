@@ -2,99 +2,297 @@
 
 namespace App\Services;
 
-use App\Models\WorkShift;
-use App\Models\Holiday;
-use App\Enums\WeekDay;
+use App\Models\Employee;
+use App\Models\LeaveType;
+use App\ValueObjects\LeaveRequestData;
 use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Leave Request Service
  *
- * This service handles business logic for leave requests including:
- * 1. Calculating next working day based on work shift weekoffs and holidays
- * 2. Proper handling of consecutive holidays and weekoffs
+ * Main coordinator service for leave request operations.
+ * Delegates specific responsibilities to specialized services:
+ * - WorkingDayService: Working day calculations
+ * - LeaveBalanceService: Leave balance calculations
+ * - LeaveOverlapService: Overlapping leave detection
+ * - ConsecutiveLeaveValidationService: Consecutive leave type validation
  */
 class LeaveRequestService
 {
+    public function __construct(
+        private WorkingDayService $workingDayService,
+        private LeaveBalanceService $leaveBalanceService,
+        private LeaveOverlapService $leaveOverlapService,
+        private ConsecutiveLeaveValidationService $consecutiveLeaveValidationService
+    ) {}
+    /**
+     * Validate leave request data
+     *
+     * @param array $data Leave request data
+     * @param int|null $excludeRequestId Leave request ID to exclude (for updates)
+     * @return array Validation result with success status and messages
+     * @throws ValidationException
+     */
+    public function validateLeaveRequest(array $data, ?int $excludeRequestId = null): array
+    {
+        $leaveRequestData = $this->prepareLeaveRequestData($data, $excludeRequestId);
+
+        $this->validateBasicData($leaveRequestData);
+
+        $employee = $this->getEmployeeOrFail($leaveRequestData->employeeId);
+        $leaveType = $this->getLeaveTypeOrFail($leaveRequestData->leaveTypeId);
+
+        // Check for overlapping leave requests
+        $this->leaveOverlapService->checkOverlappingLeaveRequests(
+            $employee,
+            $leaveRequestData->startDate,
+            $leaveRequestData->endDate,
+            $excludeRequestId
+        );
+
+        $workShift = $this->getWorkShiftOrFail($employee, $leaveRequestData->startDate);
+
+        // Check consecutive leave type validation
+        $this->consecutiveLeaveValidationService->checkNextWorkingDayLeaveType(
+            $employee, $leaveRequestData->endDate, $leaveType, $workShift, $excludeRequestId
+        );
+
+        $this->consecutiveLeaveValidationService->checkPreviousWorkingDayLeaveType(
+            $employee, $leaveRequestData->startDate, $leaveType, $workShift, $excludeRequestId
+        );
+
+        // Calculate and validate leave balance
+        $requiredLeaveDays = $this->leaveBalanceService->calculateRequiredLeaveDays(
+            $leaveRequestData->startDate,
+            $leaveRequestData->endDate,
+            $workShift,
+            $leaveType,
+            $leaveRequestData->isHalfDay
+        );
+
+        $availableLeave = $this->leaveBalanceService->getAvailableLeaveBalance(
+            $employee, $leaveType, $leaveRequestData->startDate, $leaveRequestData->endDate
+        );
+
+        if ($requiredLeaveDays > $availableLeave) {
+            throw ValidationException::withMessages([
+                'leave_type_id' => "Insufficient leave balance. Required: {$requiredLeaveDays} days, Available: {$availableLeave} days.",
+            ]);
+        }
+
+        return [
+            'success' => true,
+            'required_days' => $requiredLeaveDays,
+            'available_days' => $availableLeave,
+            'message' => 'Leave request validation passed.'
+        ];
+    }
+
+    /**
+     * Prepare leave request data from array
+     *
+     * @param array $data
+     * @param int|null $excludeRequestId
+     * @return LeaveRequestData
+     */
+    private function prepareLeaveRequestData(array $data, ?int $excludeRequestId = null): LeaveRequestData
+    {
+        $leaveRequestData = LeaveRequestData::fromArray($data, $excludeRequestId);
+
+        // Try to resolve employee from current user if not provided
+        if (!$leaveRequestData->employeeId) {
+            $leaveRequestData = new LeaveRequestData(
+                employeeId: $this->resolveEmployeeFromCurrentUser(),
+                leaveTypeId: $leaveRequestData->leaveTypeId,
+                startDate: $leaveRequestData->startDate,
+                endDate: $leaveRequestData->endDate,
+                isHalfDay: $leaveRequestData->isHalfDay,
+                excludeRequestId: $leaveRequestData->excludeRequestId
+            );
+        }
+
+        return $leaveRequestData;
+    }
+
+    /**
+     * Resolve employee ID from current authenticated user
+     *
+     * @return int|null
+     */
+    private function resolveEmployeeFromCurrentUser(): ?int
+    {
+        $userId = auth()->user()->id ?? null;
+        if (!$userId) {
+            return null;
+        }
+
+        return Employee::where('user_id', $userId)->value('id');
+    }
+
+    /**
+     * Validate basic leave request data
+     *
+     * @param LeaveRequestData $data
+     * @throws ValidationException
+     */
+    private function validateBasicData(LeaveRequestData $data): void
+    {
+        if (!$data->employeeId) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'Employee ID is required for validation.',
+            ]);
+        }
+
+        if (!$data->hasRequiredFields()) {
+            throw ValidationException::withMessages([
+                'leave_type_id' => 'Leave type is required.',
+                'start_date' => 'Start date and end date are required.',
+                'end_date' => 'Start date and end date are required.',
+            ]);
+        }
+
+        if (!$data->hasValidDates()) {
+            throw ValidationException::withMessages([
+                'end_date' => 'End date must be greater than or equal to start date.',
+            ]);
+        }
+
+        if (!$data->hasValidHalfDayConfig()) {
+            throw ValidationException::withMessages([
+                'is_half_date' => 'For half day leave, start date and end date must be the same.',
+                'end_date' => 'For half day leave, start date and end date must be the same.',
+            ]);
+        }
+    }
+
+    /**
+     * Get employee or throw validation exception
+     *
+     * @param int $employeeId
+     * @return Employee
+     * @throws ValidationException
+     */
+    private function getEmployeeOrFail(int $employeeId): Employee
+    {
+        $employee = Employee::find($employeeId);
+
+        if (!$employee) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'Employee not found.',
+            ]);
+        }
+
+        return $employee;
+    }
+
+    /**
+     * Get leave type or throw validation exception
+     *
+     * @param int $leaveTypeId
+     * @return LeaveType
+     * @throws ValidationException
+     */
+    private function getLeaveTypeOrFail(int $leaveTypeId): LeaveType
+    {
+        $leaveType = LeaveType::find($leaveTypeId);
+
+        if (!$leaveType) {
+            throw ValidationException::withMessages([
+                'leave_type_id' => 'Leave type not found.',
+            ]);
+        }
+
+        return $leaveType;
+    }
+
+    /**
+     * Get work shift or throw validation exception
+     *
+     * @param Employee $employee
+     * @param Carbon $startDate
+     * @return \App\Models\WorkShift
+     * @throws ValidationException
+     */
+    private function getWorkShiftOrFail(Employee $employee, Carbon $startDate)
+    {
+        $workShift = $employee->workShifts()
+            ->wherePivot('end_date', '>=', $startDate)
+            ->orWherePivotNull('end_date')
+            ->orderByPivot('start_date', 'desc')
+            ->first();
+
+        if (!$workShift) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'No work shift found for this employee for the requested dates.',
+            ]);
+        }
+
+        return $workShift;
+    }
+
+    /**
+     * Check if there are overlapping leave requests (public method for external use)
+     *
+     * @param int $employeeId
+     * @param Carbon|string $startDate
+     * @param Carbon|string $endDate
+     * @param int|null $excludeRequestId
+     * @return bool
+     */
+    public function hasOverlappingLeaveRequests(int $employeeId, $startDate, $endDate, ?int $excludeRequestId = null): bool
+    {
+        return $this->leaveOverlapService->hasOverlappingLeaveRequests($employeeId, $startDate, $endDate, $excludeRequestId);
+    }
+
+    /**
+     * Get overlapping leave requests for an employee (for display purposes)
+     *
+     * @param int $employeeId
+     * @param Carbon|string $startDate
+     * @param Carbon|string $endDate
+     * @param int|null $excludeRequestId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getOverlappingLeaveRequests(int $employeeId, $startDate, $endDate, ?int $excludeRequestId = null)
+    {
+        return $this->leaveOverlapService->getOverlappingLeaveRequests($employeeId, $startDate, $endDate, $excludeRequestId);
+    }
+
     /**
      * Get the next working day for a given work shift
      *
-     * This function considers:
-     * - Work shift weekoffs
-     * - System holidays
-     * - Returns the next working day based on those criteria
-     *
-     * @param WorkShift $workShift The work shift to check
+     * @param \App\Models\WorkShift $workShift The work shift to check
      * @param Carbon|null $startDate The date to start from (defaults to today)
      * @return Carbon The next working day
      */
-    public function getNextWorkingDay(WorkShift $workShift, ?Carbon $startDate = null): Carbon
+    public function getNextWorkingDay($workShift, ?Carbon $startDate = null): Carbon
     {
-        // Start from today if no date provided, otherwise start from the provided date
-        $currentDate = $startDate ? $startDate->copy() : Carbon::today();
-
-        // Start checking from the next day
-        $currentDate->addDay();
-
-        // Maximum iterations to prevent infinite loop (check up to 365 days ahead)
-        $maxIterations = 365;
-        $iterations = 0;
-
-        while ($iterations < $maxIterations) {
-            // Check if current date is a working day
-            if ($this->isWorkingDay($currentDate, $workShift)) {
-                return $currentDate;
-            }
-
-            // Move to next day
-            $currentDate->addDay();
-            $iterations++;
-        }
-
-        // If we reach here, something went wrong - return the date anyway
-        // This should rarely happen unless all days in a year are holidays/weekoffs
-        return $currentDate;
+        return $this->workingDayService->getNextWorkingDay($workShift, $startDate);
     }
 
     /**
      * Check if a given date is a working day for the work shift
      *
      * @param Carbon $date The date to check
-     * @param WorkShift $workShift The work shift to check against
+     * @param \App\Models\WorkShift $workShift The work shift to check against
      * @return bool True if it's a working day, false otherwise
      */
-    public function isWorkingDay(Carbon $date, WorkShift $workShift): bool
+    public function isWorkingDay(Carbon $date, $workShift): bool
     {
-        // Check if it's a weekoff for this work shift
-        if ($this->isWeekoff($date, $workShift)) {
-            return false;
-        }
-
-        // Check if it's a holiday
-        if ($this->isHoliday($date)) {
-            return false;
-        }
-
-        return true;
+        return $this->workingDayService->isWorkingDay($date, $workShift);
     }
 
     /**
      * Check if a given date is a weekoff for the work shift
      *
      * @param Carbon $date The date to check
-     * @param WorkShift $workShift The work shift to check against
+     * @param \App\Models\WorkShift $workShift The work shift to check against
      * @return bool True if it's a weekoff, false otherwise
      */
-    public function isWeekoff(Carbon $date, WorkShift $workShift): bool
+    public function isWeekoff(Carbon $date, $workShift): bool
     {
-        // Get the day name in lowercase (e.g., 'monday', 'tuesday')
-        $dayName = strtolower($date->format('l'));
-
-        // Get weekoffs from work shift
-        $weekoffs = $workShift->weekoffs ?? [];
-
-        // Check if current day is in the weekoffs array
-        return in_array($dayName, $weekoffs);
+        return $this->workingDayService->isWeekoff($date, $workShift);
     }
 
     /**
@@ -105,11 +303,7 @@ class LeaveRequestService
      */
     public function isHoliday(Carbon $date): bool
     {
-        // Check if there's any holiday that includes this date
-        return Holiday::where(function ($query) use ($date) {
-            $query->where('from_date', '<=', $date)
-                  ->where('to_date', '>=', $date);
-        })->exists();
+        return $this->workingDayService->isHoliday($date);
     }
 
     /**
@@ -117,22 +311,12 @@ class LeaveRequestService
      *
      * @param Carbon $startDate Start date
      * @param Carbon $endDate End date
-     * @param WorkShift $workShift The work shift to check against
+     * @param \App\Models\WorkShift $workShift The work shift to check against
      * @return array Array of working days
      */
-    public function getWorkingDaysBetween(Carbon $startDate, Carbon $endDate, WorkShift $workShift): array
+    public function getWorkingDaysBetween(Carbon $startDate, Carbon $endDate, $workShift): array
     {
-        $workingDays = [];
-        $currentDate = $startDate->copy();
-
-        while ($currentDate->lte($endDate)) {
-            if ($this->isWorkingDay($currentDate, $workShift)) {
-                $workingDays[] = $currentDate->copy();
-            }
-            $currentDate->addDay();
-        }
-
-        return $workingDays;
+        return $this->workingDayService->getWorkingDaysBetween($startDate, $endDate, $workShift);
     }
 
     /**
@@ -140,90 +324,159 @@ class LeaveRequestService
      *
      * @param Carbon $startDate Start date
      * @param Carbon $endDate End date
-     * @param WorkShift $workShift The work shift to check against
+     * @param \App\Models\WorkShift $workShift The work shift to check against
      * @return int Number of working days
      */
-    public function countWorkingDaysBetween(Carbon $startDate, Carbon $endDate, WorkShift $workShift): int
+    public function countWorkingDaysBetween(Carbon $startDate, Carbon $endDate, $workShift): int
     {
-        return count($this->getWorkingDaysBetween($startDate, $endDate, $workShift));
+        return $this->workingDayService->countWorkingDaysBetween($startDate, $endDate, $workShift);
     }
 
-        /**
+    /**
      * Get the previous working day for a given work shift
      *
-     * @param WorkShift $workShift The work shift to check
+     * @param \App\Models\WorkShift $workShift The work shift to check
      * @param Carbon|null $startDate The date to start from (defaults to today)
      * @return Carbon The previous working day
      */
-    public function getPreviousWorkingDay(WorkShift $workShift, ?Carbon $startDate = null): Carbon
+    public function getPreviousWorkingDay($workShift, ?Carbon $startDate = null): Carbon
     {
-        // Start from today if no date provided, otherwise start from the provided date
-        $currentDate = $startDate ? $startDate->copy() : Carbon::today();
-
-        // Start checking from the previous day
-        $currentDate->subDay();
-
-        // Maximum iterations to prevent infinite loop (check up to 365 days back)
-        $maxIterations = 365;
-        $iterations = 0;
-
-        while ($iterations < $maxIterations) {
-            // Check if current date is a working day
-            if ($this->isWorkingDay($currentDate, $workShift)) {
-                return $currentDate;
-            }
-
-            // Move to previous day
-            $currentDate->subDay();
-            $iterations++;
-        }
-
-        // If we reach here, something went wrong - return the date anyway
-        return $currentDate;
+        return $this->workingDayService->getPreviousWorkingDay($workShift, $startDate);
     }
 
-            /**
+    /**
      * Get the count of working days between two dates (excluding holidays only)
-     *
-     * This function considers only holidays and assumes standard weekdays (Monday-Friday)
-     * as working days. It does not consider work shift specific weekoffs.
      *
      * @param Carbon|string $startDate Start date
      * @param Carbon|string $endDate End date
-     * @param bool $includeWeekends Whether to include weekends as working days (default: false)
+     * @param bool $includeWeekends Whether to include weekends as working days
      * @return int Number of working days between the dates (inclusive)
      */
     public function getWorkingDaysCount($startDate, $endDate, bool $includeWeekends = false): int
     {
-        // Convert to Carbon instances if strings are passed
-        $start = $startDate instanceof Carbon ? $startDate->copy() : Carbon::parse($startDate);
-        $end = $endDate instanceof Carbon ? $endDate->copy() : Carbon::parse($endDate);
+        return $this->workingDayService->getWorkingDaysCount($startDate, $endDate, $includeWeekends);
+    }
 
-        // Ensure start date is before or equal to end date
-        if ($start->gt($end)) {
-            return 0;
-        }
+    /**
+     * Validate leave request for live form validation (partial validation)
+     *
+     * @param array $data Partial leave request data
+     * @param int|null $excludeRequestId Leave request ID to exclude (for updates)
+     * @return array Validation result with success status and messages
+     */
+    public function validateLeaveRequestPartial(array $data, ?int $excludeRequestId = null): array
+    {
+        try {
+            $leaveRequestData = $this->prepareLeaveRequestData($data, $excludeRequestId);
 
-        $workingDaysCount = 0;
-        $currentDate = $start->copy();
-
-        while ($currentDate->lte($end)) {
-            // Check if it's a holiday
-            if (!$this->isHoliday($currentDate)) {
-                // If we're including weekends, count all non-holiday days
-                if ($includeWeekends) {
-                    $workingDaysCount++;
-                } else {
-                    // Only count weekdays (Monday-Friday)
-                    if ($currentDate->isWeekday()) {
-                        $workingDaysCount++;
-                    }
-                }
+            // If we don't have enough data, return early
+            if (!$leaveRequestData->hasRequiredFields()) {
+                return [
+                    'success' => false,
+                    'message' => 'Insufficient data for validation.'
+                ];
             }
 
-            $currentDate->addDay();
-        }
+            if (!$leaveRequestData->hasValidDates()) {
+                return [
+                    'success' => false,
+                    'message' => 'End date must be greater than or equal to start date.'
+                ];
+            }
 
-        return $workingDaysCount;
+            if (!$leaveRequestData->hasValidHalfDayConfig()) {
+                return [
+                    'success' => false,
+                    'message' => 'For half day leave, start date and end date must be the same.'
+                ];
+            }
+
+            $employee = Employee::find($leaveRequestData->employeeId);
+            if (!$employee) {
+                return [
+                    'success' => false,
+                    'message' => 'Employee not found.'
+                ];
+            }
+
+            $leaveType = LeaveType::find($leaveRequestData->leaveTypeId);
+            if (!$leaveType) {
+                return [
+                    'success' => false,
+                    'message' => 'Leave type not found.'
+                ];
+            }
+
+            // Check for overlapping leave requests
+            $overlappingRequests = $this->leaveOverlapService->getOverlappingLeaveRequests(
+                $leaveRequestData->employeeId,
+                $leaveRequestData->startDate,
+                $leaveRequestData->endDate,
+                $excludeRequestId
+            );
+
+            if ($overlappingRequests->isNotEmpty()) {
+                $overlappingDetails = $overlappingRequests->map(function ($request) {
+                    return "{$request->leaveType->name} ({$request->start_date->format('Y-m-d')} to {$request->end_date->format('Y-m-d')}) - {$request->status->label()}";
+                })->implode(', ');
+
+                return [
+                    'success' => false,
+                    'message' => "Overlapping leave found: {$overlappingDetails}"
+                ];
+            }
+
+            $workShift = $this->getWorkShiftOrFail($employee, $leaveRequestData->startDate);
+
+            // Check consecutive leave type validation
+            try {
+                $this->consecutiveLeaveValidationService->checkNextWorkingDayLeaveType(
+                    $employee, $leaveRequestData->endDate, $leaveType, $workShift, $excludeRequestId
+                );
+
+                $this->consecutiveLeaveValidationService->checkPreviousWorkingDayLeaveType(
+                    $employee, $leaveRequestData->startDate, $leaveType, $workShift, $excludeRequestId
+                );
+            } catch (ValidationException $e) {
+                $errors = collect($e->errors())->flatten()->first();
+                return [
+                    'success' => false,
+                    'message' => $errors
+                ];
+            }
+
+            $requiredLeaveDays = $this->leaveBalanceService->calculateRequiredLeaveDays(
+                $leaveRequestData->startDate,
+                $leaveRequestData->endDate,
+                $workShift,
+                $leaveType,
+                $leaveRequestData->isHalfDay
+            );
+
+            $availableLeave = $this->leaveBalanceService->getAvailableLeaveBalance(
+                $employee, $leaveType, $leaveRequestData->startDate, $leaveRequestData->endDate
+            );
+
+            if ($requiredLeaveDays > $availableLeave) {
+                return [
+                    'success' => false,
+                    'message' => "Insufficient leave balance. Required: {$requiredLeaveDays} days, Available: {$availableLeave} days."
+                ];
+            }
+
+            return [
+                'success' => true,
+                'required_days' => $requiredLeaveDays,
+                'available_days' => $availableLeave,
+                'message' => 'Validation passed.'
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Validation error: ' . $e->getMessage()
+            ];
+        }
     }
+
 }
