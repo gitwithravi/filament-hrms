@@ -11,17 +11,20 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 trait HasManager
 {
     /**
      * Boot the trait.
      */
-    public static function bootHasManager(): void
+        public static function bootHasManager(): void
     {
-        // Check if the model has employee_id column
+        Log::info('HasManager::bootHasManager - Booting trait');
+
+        // Check if the model has employee_id column (skip for employees table)
         static::creating(function ($model) {
-            if (!Schema::hasColumn($model->getTable(), 'employee_id')) {
+            if ($model->getTable() !== 'employees' && !Schema::hasColumn($model->getTable(), 'employee_id')) {
                 throw new \Exception("Model {$model->getTable()} must have an 'employee_id' column to use HasManager trait.");
             }
         });
@@ -38,17 +41,24 @@ trait HasManager
     {
         // Only apply the scope if the current user is a manager
         if (!Auth::check() || Auth::user()->user_type !== UserType::MANAGER) {
+            Log::info('HasManager::forManager - User not authenticated or not a manager');
             return $query;
         }
 
         $managedEmployeeIds = $this->getCurrentUserManagedEmployeeIds();
 
         if ($managedEmployeeIds->isEmpty()) {
+            Log::info('HasManager::forManager - No managed employees');
             // If no managed employees, return empty result
-            return $query->where('employee_id', -1);
+            $column = $this->getTable() === 'employees' ? 'id' : 'employee_id';
+            return $query->where($column, -1);
         }
 
-        return $query->whereIn('employee_id', $managedEmployeeIds);
+        Log::info('HasManager::forManager - Managed employees found', ['employee_ids' => $managedEmployeeIds]);
+
+        // Use appropriate column based on table
+        $column = $this->getTable() === 'employees' ? 'id' : 'employee_id';
+        return $query->whereIn($column, $managedEmployeeIds);
     }
 
         /**
@@ -103,17 +113,43 @@ trait HasManager
     protected function getCurrentUserDesignation(): ?Designation
     {
         if (!Auth::check()) {
+            Log::debug('HasManager::getCurrentUserDesignation - User not authenticated');
             return null;
         }
 
         $user = Auth::user();
+        Log::debug('HasManager::getCurrentUserDesignation - Got user', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'user_type' => $user->user_type?->value,
+        ]);
 
-        // Get the user's employee record
-        $employee = $user->employee;
-
-        if (!$employee) {
+        // Get the user's employee record - bypass global scopes to avoid conflicts
+        try {
+            $employee = Employee::withoutGlobalScopes()->where('user_id', $user->id)->first();
+            Log::debug('HasManager::getCurrentUserDesignation - Employee found via direct query', [
+                'employee' => $employee ? $employee->id : null,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('HasManager::getCurrentUserDesignation - Error getting employee', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+            ]);
             return null;
         }
+
+        if (!$employee) {
+            Log::warning('HasManager::getCurrentUserDesignation - No employee record found for user', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+            ]);
+            return null;
+        }
+
+        Log::debug('HasManager::getCurrentUserDesignation - Found employee', [
+            'employee_id' => $employee->id,
+            'employee_name' => $employee->full_name,
+        ]);
 
         // Get the active employee record
         $activeEmployeeRecord = $employee->employeeRecords()
@@ -121,9 +157,25 @@ trait HasManager
             ->with('designation')
             ->first();
 
-        if (!$activeEmployeeRecord || !$activeEmployeeRecord->designation) {
+        if (!$activeEmployeeRecord) {
+            Log::warning('HasManager::getCurrentUserDesignation - No active employee record found', [
+                'employee_id' => $employee->id,
+            ]);
             return null;
         }
+
+        if (!$activeEmployeeRecord->designation) {
+            Log::warning('HasManager::getCurrentUserDesignation - Active employee record has no designation', [
+                'employee_id' => $employee->id,
+                'employee_record_id' => $activeEmployeeRecord->id,
+            ]);
+            return null;
+        }
+
+        Log::debug('HasManager::getCurrentUserDesignation - Found designation', [
+            'designation_id' => $activeEmployeeRecord->designation->id,
+            'designation_name' => $activeEmployeeRecord->designation->name,
+        ]);
 
         return $activeEmployeeRecord->designation;
     }
@@ -221,6 +273,7 @@ trait HasManager
     {
         // Only managers can have managed employees
         if (!Auth::check() || Auth::user()->user_type !== UserType::MANAGER) {
+            Log::info('HasManager::getManagedEmployeesCount - User not authenticated or not a manager');
             return 0;
         }
 

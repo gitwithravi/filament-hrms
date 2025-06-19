@@ -35,6 +35,11 @@ class EmployeeResource extends Resource
         return TableSchema::make($table);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->forManager();
+    }
+
     public static function getRelations(): array
     {
         return [
