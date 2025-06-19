@@ -28,8 +28,6 @@ class BasicDetails
                     Select::make('employee_category_id')
                         ->relationship('employeeCategory', 'name')
                         ->required(),
-                    Select::make('manager_id')
-                        ->relationship('manager', 'full_name'),
                     DatePicker::make('date_of_joining')
                         ->required(),
                     DatePicker::make('dob')
