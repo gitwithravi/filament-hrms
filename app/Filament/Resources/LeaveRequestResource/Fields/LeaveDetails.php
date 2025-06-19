@@ -55,6 +55,7 @@ class LeaveDetails
                     DatePicker::make('start_date')
                         ->required()
                         ->live()
+                        ->native(false)
                         ->afterStateUpdated(function ($state, Get $get, $set, $livewire) {
                             // If half day is selected, automatically set end date to same as start date
                             if ($get('is_half_date') == '1' && $state) {
@@ -107,6 +108,7 @@ class LeaveDetails
                     DatePicker::make('end_date')
                         ->required()
                         ->live()
+                        ->native(false)
                         ->afterOrEqual('start_date')
                         ->disabled(fn (Get $get) => $get('is_half_date') == '1')
                         ->dehydrated()

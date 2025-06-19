@@ -45,6 +45,7 @@ class LeaveRequestResource extends Resource
             'index' => Pages\ListLeaveRequests::route('/'),
             'create' => Pages\CreateLeaveRequest::route('/create'),
             'edit' => Pages\EditLeaveRequest::route('/{record}/edit'),
+            'view' => Pages\ViewLeaveRequest::route('/{record}'),
         ];
     }
 }

@@ -3,11 +3,12 @@
 namespace App\Filament\Resources\LeaveRequestResource;
 
 use Filament\Tables;
-use Filament\Tables\Actions\ActionGroup;
-use App\Enums\LeaveRequestStatus;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Select;
 use App\Models\LeaveRequest;
+use App\Enums\LeaveRequestStatus;
+use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Tables\Actions\ActionGroup;
 
 class Actions
 {
@@ -15,9 +16,18 @@ class Actions
     {
         return [
             ActionGroup::make([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make()
+                ->visible(function ($record) {
+                    return $record->status === LeaveRequestStatus::REQUESTED;
+                }),
+                Tables\Actions\DeleteAction::make()
+                ->visible(function ($record) {
+                    return $record->status === LeaveRequestStatus::REQUESTED;
+                }),
+                Tables\Actions\ViewAction::make()
+                    ->label('View Details')
+                    ->icon('heroicon-o-eye')
+                    ->color('info'),
                 Tables\Actions\Action::make('Leave Action')
                     ->label('Leave Action')
                     ->icon('heroicon-o-arrow-path')
@@ -38,6 +48,12 @@ class Actions
                             'status' => $data['status'],
                             'approver_comment' => $data['approver_comment'],
                         ]);
+                    })
+                    ->visible(function ($record) {
+                        if(Auth::user()->hasRole('super_admin')) {
+                            return $record->status === LeaveRequestStatus::REQUESTED;
+                        }
+                        return $record->status === LeaveRequestStatus::REQUESTED && $record->approver_id === auth()->user()->id;
                     })
             ])
             ->label('Actions')

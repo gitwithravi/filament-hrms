@@ -72,7 +72,7 @@ class WorkShiftsRelationManager extends RelationManager
 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Status')
-                    ->getStateUsing(fn ($record) => is_null($record->pivot->end_date) || $record->pivot->end_date->isFuture())
+                    ->getStateUsing(fn ($record) => is_null($record->pivot->end_date) || \Carbon\Carbon::parse($record->pivot->end_date)->isFuture())
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
