@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\LeaveTypeResource\Fields;
 
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 
@@ -23,6 +24,10 @@ class Details
                         ->numeric()
                         ->minValue(0)
                         ->maxValue(100),
+                    Toggle::make('is_sandwich_type')
+                        ->label('Is Sandwich Type')
+                        ->default(false)
+                        ->inline(),
                 ])
                 ->columns(2),
         ];

@@ -17,7 +17,7 @@ class LeaveType extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = ['name', 'code', 'yearly_grant'];
+    protected $fillable = ['name', 'code', 'yearly_grant', 'is_sandwich_type'];
 
     /**
      * The attributes that should be guarded.
